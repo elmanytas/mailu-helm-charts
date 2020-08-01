@@ -8,18 +8,18 @@ apiVersion: extensions/v1beta1
 {{ end }}
 kind: Deployment
 metadata:
-  name: {{ include "mailu.fullname" . }}-front
+  name: {{ include "mailu.fullname" . }}-mail-ingress
 spec:
   selector:
     matchLabels:
       app: {{ include "mailu.fullname" . }}
-      component: front
+      component: mail-ingress
   replicas: 1
   template:
     metadata:
       labels:
         app: {{ include "mailu.fullname" . }}
-        component: front
+        component: mail-ingress
     spec:
       {{- with .Values.nodeSelector }}
       nodeSelector:
@@ -34,8 +34,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-      - name: front
-        image: {{ .Values.front.image.repository }}:{{ default .Values.mailuVersion .Values.front.image.tag }}
+      - name: mail-ingress
+        image: {{ .Values.mailIngress.image.repository }}:{{ default .Values.mailuVersion .Values.mailIngress.image.tag }}
         imagePullPolicy: Always
         volumeMounts:
           - name: certs
@@ -87,21 +87,27 @@ spec:
         ports:
           - name: pop3
             containerPort: 110
+            hostPort: 110
             protocol: TCP
           - name: pop3s
             containerPort: 995
+            hostPort: 995
             protocol: TCP
           - name: imap
             containerPort: 143
+            hostPort: 143
             protocol: TCP
           - name: imaps
             containerPort: 993
+            hostPort: 993
             protocol: TCP
           - name: smtp
             containerPort: 25
+            hostPort: 25
             protocol: TCP
           - name: smtps
             containerPort: 465
+            hostPort: 465
             protocol: TCP
           - name: smtp-auth
             containerPort: 10025
@@ -111,33 +117,31 @@ spec:
             protocol: TCP
           - name: smtpd
             containerPort: 587
+            hostPort: 587
             protocol: TCP
           - name: auth
             containerPort: 8000
             protocol: TCP
-          - name: http
-            containerPort: 80
+          - name: health
+            containerPort: 10154
             protocol: TCP
-          {{ if not .Values.ingress.externalIngress }}
-          - name: https
-            containerPort: 443
-            protocol: TCP
-          {{end}}
-        {{- with .Values.front.resources }}
+        {{- with .Values.mailIngress.resources }}
         resources:
         {{- .|toYaml|nindent 10}}
         {{- end }}
         livenessProbe:
           httpGet:
             path: /health
-            port: http
+            port: 10154
+            scheme: HTTP
           periodSeconds: 5
           failureThreshold: 30
           timeoutSeconds: 5
         readinessProbe:
           httpGet:
             path: /health
-            port: http
+            port: 10154
+            scheme: HTTP
           periodSeconds: 10
           failureThreshold: 1
           timeoutSeconds: 5
@@ -150,6 +154,7 @@ spec:
               - key: tls.key
                 path: key.pem
             secretName: {{ include "mailu.fullname" . }}-certificates
+      hostNetwork: true
       restartPolicy: Always
       terminationGracePeriodSeconds: 60
   strategy:
@@ -158,52 +163,52 @@ spec:
       maxUnavailable: 1
       maxSurge: 0
 
----
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: {{ include "mailu.fullname" . }}-front
-  labels:
-    app: {{ include "mailu.fullname" . }}
-    component: front
-spec:
-  selector:
-    app: {{ include "mailu.fullname" . }}
-    component: front
-  ports:
-  - name: pop3
-    port: 110
-    protocol: TCP
-  - name: pop3s
-    port: 995
-    protocol: TCP
-  - name: imap
-    port: 143
-    protocol: TCP
-  - name: imaps
-    port: 993
-    protocol: TCP
-  - name: smtp
-    port: 25
-    protocol: TCP
-  - name: smtps
-    port: 465
-    protocol: TCP
-  - name: smtpd
-    port: 587
-    protocol: TCP
-  - name: smtp-auth
-    port: 10025
-    protocol: TCP
-  - name: imap-auth
-    port: 10143
-    protocol: TCP
-  - name: http
-    port: 80
-    protocol: TCP
-{{ if not .Values.ingress.externalIngress }}
-  - name: https
-    port: 443
-    protocol: TCP
-{{end}}
+# ---
+#
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: {{ include "mailu.fullname" . }}-mail-ingress
+#   labels:
+#     app: {{ include "mailu.fullname" . }}
+#     component: mail-ingress
+# spec:
+#   selector:
+#     app: {{ include "mailu.fullname" . }}
+#     component: mail-ingress
+#   ports:
+#   - name: pop3
+#     port: 110
+#     protocol: TCP
+#   - name: pop3s
+#     port: 995
+#     protocol: TCP
+#   - name: imap
+#     port: 143
+#     protocol: TCP
+#   - name: imaps
+#     port: 993
+#     protocol: TCP
+#   - name: smtp
+#     port: 25
+#     protocol: TCP
+#   - name: smtps
+#     port: 465
+#     protocol: TCP
+#   - name: smtpd
+#     port: 587
+#     protocol: TCP
+#   - name: smtp-auth
+#     port: 10025
+#     protocol: TCP
+#   - name: imap-auth
+#     port: 10143
+#     protocol: TCP
+#   - name: http
+#     port: 80
+#     protocol: TCP
+# {{ if not .Values.ingress.externalIngress }}
+#   - name: https
+#     port: 443
+#     protocol: TCP
+# {{end}}
